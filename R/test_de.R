@@ -47,6 +47,8 @@
 #'   occur for lowly expressed genes because the ratio of two small numbers can be impractically large. For example, limiting
 #'   the range of log fold changes can clarify the patterns in a volcano plot. Default: `10` which
 #'   corresponds to a thousand-fold (2^10) increase in expression.
+#' @param compute_lfc_se Compute standard errors for the log fold changes, and add a column `se` to the
+#'   returned dataframe. Only has an effect when using `contrast` instead of `reduced_design`. Default: `FALSE`
 #'
 #' @details
 #' The `cond()` helper function simplifies the specification of a contrast for complex experimental designs.
@@ -137,6 +139,7 @@ test_de <- function(fit,
                     pval_adjust_method = "BH", sort_by = NULL,
                     decreasing = FALSE, n_max = Inf,
                     max_lfc = 10,
+                    compute_lfc_se = FALSE,
                     verbose = FALSE){
   # Capture all NSE variables
   subset_to_capture <- substitute(subset_to)
@@ -146,6 +149,7 @@ test_de <- function(fit,
             subset_to = subset_to_capture, pseudobulk_by = pseudobulk_by_capture,
             pval_adjust_method = pval_adjust_method, sort_by = sort_by_capture,
             decreasing = decreasing, n_max = n_max, max_lfc = max_lfc,
+            compute_lfc_se = compute_lfc_se,
             verbose = verbose,
             env = parent.frame())
 }
@@ -160,10 +164,13 @@ test_de_q <- function(fit,
                       subset_to = NULL, pseudobulk_by = NULL,
                       pval_adjust_method = "BH", sort_by = NULL,
                       decreasing = FALSE, n_max = Inf, max_lfc = 10,
+                      compute_lfc_se = FALSE,
                       verbose = FALSE,
                       env = parent.frame()){
 
   ridge_penalty <- fit$ridge_penalty
+  lfc_se <- NULL
+
   if(! is.matrix(full_design) || length(full_design) != length(fit$model_matrix) || ! all(full_design == fit$model_matrix) ){
     full_design <- handle_design_parameter(full_design, fit$data, SummarizedExperiment::colData(fit$data), NULL)$model_matrix
     ridge_penalty <- NULL
@@ -243,6 +250,18 @@ test_de_q <- function(fit,
       diag(ridge_penalty, nrow = length(ridge_penalty)) %*% rot
     }
     lfc <- fit$Beta %*% cntrst / log(2)
+
+    if (compute_lfc_se) {
+      pred <- predict(fit, se.fit=TRUE, type='link',
+                      offset=0, #for asserting equality with lfc
+                      newdata=matrix(cntrst, nrow=1))
+
+      lfc_se <- pred$se.fit[,1] / log(2)
+
+      stopifnot(rownames(pred$se.fit) == rownames(fit$Beta))
+      stopifnot(all.equal(pred$fit / log(2), lfc))
+    }
+
     lfc[lfc < -max_lfc] <- -max_lfc
     lfc[lfc > max_lfc] <- max_lfc
   }else{
@@ -313,6 +332,9 @@ test_de_q <- function(fit,
                     f_statistic = f_stat, df1 = df_test, df2 = df_fit,
                     lfc = lfc,
                     stringsAsFactors = FALSE, row.names = NULL)
+  if (isFALSE(is.null(lfc_se))) {
+    res$se <- lfc_se
+  }
   sort_by_e <- eval_with_q(sort_by, res, env = env)
   res <- if(is.null(sort_by_e)) {
     res

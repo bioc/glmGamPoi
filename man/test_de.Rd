@@ -16,6 +16,7 @@ test_de(
   decreasing = FALSE,
   n_max = Inf,
   max_lfc = 10,
+  compute_lfc_se = FALSE,
   verbose = FALSE
 )
 }

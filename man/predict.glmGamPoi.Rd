@@ -82,9 +82,9 @@ for the original input data.
 For \code{se.fit = TRUE}, the function sticks very close to the behavior of \code{stats::predict.glm()} for
 fits from \code{MASS::glm.nb()}.
 
-\strong{Note}: If \code{type = "response"}, the results are computed using the natural logarithm as the
-link function. This differs from the \code{lfc} estimate provided by \code{\link{test_de}}, which are provided
-on the log2 scale.
+\strong{Note}: If \code{type = "link"}, the results are computed using the natural logarithm as the
+link function. This differs from the \code{lfc} estimate provided by \code{\link{test_de}}, which are on the
+log2 scale.
 }
 \examples{
 
