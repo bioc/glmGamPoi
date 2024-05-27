@@ -47,6 +47,10 @@
 #'   For `se.fit = TRUE`, the function sticks very close to the behavior of `stats::predict.glm()` for
 #'   fits from `MASS::glm.nb()`.
 #'
+#'   **Note**: If `type = "link"`, the results are computed using the natural logarithm as the
+#'   link function. This differs from the `lfc` estimate provided by [`test_de`], which are on the
+#'   log2 scale.
+#'
 #' @return
 #'   If `se.fit == FALSE`, a matrix with dimensions `nrow(object$data) x nrow(newdata)`. \cr
 #'   If `se.fit == TRUE`, a list with three entries
