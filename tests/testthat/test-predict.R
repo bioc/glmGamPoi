@@ -80,6 +80,84 @@ test_that("predict works for new data", {
 })
 
 
+test_that("predict se works", {
+  y <- rnbinom(n = 100, mu = 15, size  = 1/0.8)
+  df <- data.frame(group = sample(LETTERS[1:3], size = 100, replace = TRUE),
+                   cont = rnorm(100))
+
+  ridge <- matrix(rnorm(4 * 4)^2, nrow = 4, ncol = 4)
+  fit <- glm_gp(y, ~ group + cont, col_data = df, overdispersion = 0.05, ridge_penalty = ridge)
+
+
+  # cntrst <- fit$model_matrix
+  # cntrst <- matrix(sample(c(0, 1, -1), 10 * 4, replace = TRUE), nrow = 10, ncol = 4, byrow = TRUE)
+  cntrst <- matrix(c(0, 1, -1, 0), nrow = 1)
+  res <- predict(fit, newdata = cntrst, se.fit = TRUE, type = "link")
+  expect_equal(res$fit, fit$Beta %*% t(cntrst))
+
+
+
+  X <- fit$model_matrix
+  mu <- fit$Mu[1,]
+  disp <- fit$overdispersions[1]
+  w <- mu / (1 + mu * disp)
+  # This formula is based on DESeq2's fitBeta C++ function
+  # https://github.com/thelovelab/DESeq2/blob/4497a51ab22e86513ebaec930de3825b45fc89a4/src/DESeq2.cpp#L452
+  XtwX_RtR_inv <- solve(t(X) %*% diag(w) %*% X + nrow(X) * t(ridge) %*% ridge)
+  sigma_deseq <- XtwX_RtR_inv %*% (t(X) %*% diag(w) %*% X) %*% XtwX_RtR_inv
+  expect_equal(drop(res$se.fit), sqrt(diag(cntrst %*% sigma_deseq %*% t(cntrst))))
+
+  # Check that my simplification is valid
+  weighted_Design <- X * sqrt(w)
+  Xwave <- rbind(weighted_Design, sqrt(nrow(X)) * ridge)
+  Rinv <- qr.solve(qr.R(qr(Xwave)))
+  B <- cntrst %*% (Rinv %*% t(Rinv)) %*% t(weighted_Design)
+  expect_equal(rowSums(B^2), diag(cntrst %*% sigma_deseq %*% t(cntrst)))
+
+  # Check that branches agree:
+  Rinv <- qr.solve(qr.R(qr(weighted_Design)))
+  lhs <- cntrst %*% Rinv
+  se_no_ridge_fast <- sqrt(rowSums(lhs^2))
+  sigma_no_ridge <- solve(t(X) %*% diag(w) %*% X) %*% (t(X) %*% diag(w) %*% X) %*% solve(t(X) %*% diag(w) %*% X)
+
+  se_no_ridge <- sqrt(diag(cntrst %*% sigma_no_ridge %*% t(cntrst)))
+  expect_equal(se_no_ridge_fast, se_no_ridge)
+
+  Xwave <- rbind(weighted_Design, sqrt(nrow(X)) * matrix(0, nrow = 4, ncol = 4))
+  Rinv <- qr.solve(qr.R(qr(Xwave)))
+  lhs <- cntrst %*% (Rinv %*% t(Rinv)) %*% t(weighted_Design)
+  se_ridge_zeroed_fast <- sqrt(rowSums(lhs^2))
+  expect_equal(se_ridge_zeroed_fast, se_no_ridge_fast)
+
+  # head(rowSums(B^2))
+  #
+  # stopifnot(all.equal(X, cntrst))
+  # C <- X %*% Rinv %*% t(Rinv) %*% t(X)# %*% diag(sqrt(w))
+  # pheatmap::pheatmap(C, cluster_rows = FALSE, cluster_cols = FALSE)
+  # tmp <- X %*% Rinv
+  # head(einsum::einsum("im,jm,jn,in->i", tmp, tmp, tmp, tmp))
+  #
+  # fast_fnc <- einsum::einsum_generator("im,jm,jn,in->i")
+  # head(fast_fnc(tmp, tmp, tmp, tmp))
+  # bench::mark(direct = {
+  #   tmp <- X %*% Rinv
+  #   C <- tmp %*% t(tmp)
+  #   rowSums(C^2)
+  # },
+  # einsum = {
+  #   tmp <- X %*% Rinv
+  #   fast_fnc(tmp, tmp, tmp, tmp)
+  # }, check = FALSE)
+  #
+  # head(diag(C %*% t(C)))
+  # head(rowSums(C^2))
+  # C2 <- (X %*% Rinv) #* w^(1/4)
+  # C[1:5, 1:5]
+  # (C2 %*% t(C2))[1:5, 1:5]
+  # head(rowSums(C2^4))
+  #
+  # rowSums((cntrst %*% t(chol(sigma_deseq))) * (cntrst %*% chol(sigma_deseq)))
+})
 
 test_that("predict works with vector design", {
   set.seed(1)

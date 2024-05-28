@@ -184,6 +184,16 @@ predict.glmGamPoi <- function(object, newdata = NULL,
     }else{
       write_rows_to_matrix
     }
+
+    # Handle ridge penalty
+    ridge_penalty <- object$ridge_penalty
+    if(is.null(ridge_penalty)){
+      ridge_penalty <- matrix(0, nrow = ncol(object$model_matrix), ncol = ncol(object$model_matrix))
+    }else if(! is.matrix(ridge_penalty)){
+      ridge_penalty <- diag(ridge_penalty, nrow = length(ridge_penalty))
+    }
+    ridge_penalty_is_small <- all(abs(ridge_penalty) < 1e-5)
+
     # This could be made more efficient by batching the reads
     # of object$Mu
     se_fit <- wrtm(nrow(fit), ncol(fit), object$Mu, function(gene_idx, mu){
@@ -191,9 +201,20 @@ predict.glmGamPoi <- function(object, newdata = NULL,
       weights <- mu / (1 + mu * disp)
       weighted_Design <-  object$model_matrix * sqrt(weights)
       tryCatch({
-        R <- qr.R(qr(weighted_Design))[p_idxs, p_idxs, drop=FALSE]
-        XRinv <- design_matrix %*% qr.solve(R)
-        sqrt(matrixStats::rowSums2(XRinv^2))
+        if(ridge_penalty_is_small){
+          Rinv <- qr.solve(qr.R(qr(weighted_Design)))
+          lhs <- cntrst %*% Rinv
+          sqrt(matrixStats::rowSums2(lhs^2))
+        }else{
+          # This is explicit formula:
+          # XtwX <- t(weighted_Design) %*% weighted_Design
+          # XtwX_ridge_inv <- solve(XtwX + nrow(weighted_Design) * t(ridge_penalty) %*% ridge_penalty)
+          # sqrt(diag(design_matrix %*% XtwX_ridge_inv %*% XtwX %*% XtwX_ridge_inv %*% t(design_matrix)))
+          Xwave <- rbind(weighted_Design, sqrt(nrow(weighted_Design)) * ridge_penalty)
+          Rinv <- qr.solve(qr.R(qr(Xwave)))
+          lhs <- design_matrix %*% (Rinv %*% t(Rinv)) %*% t(weighted_Design)
+          sqrt(matrixStats::rowSums2(lhs^2))
+        }
       }, error = function(err){
         # For example R is singular
         # This can happen if all mu == 0
