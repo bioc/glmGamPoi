@@ -104,15 +104,15 @@ test_that("predict se works", {
   # This formula is based on DESeq2's fitBeta C++ function
   # https://github.com/thelovelab/DESeq2/blob/4497a51ab22e86513ebaec930de3825b45fc89a4/src/DESeq2.cpp#L452
   XtwX_RtR_inv <- solve(t(X) %*% diag(w) %*% X + nrow(X) * t(ridge) %*% ridge)
-  sigma_deseq <- XtwX_RtR_inv %*% (t(X) %*% diag(w) %*% X) %*% XtwX_RtR_inv
-  expect_equal(drop(res$se.fit), sqrt(diag(cntrst %*% sigma_deseq %*% t(cntrst))))
+  cov_mat <- XtwX_RtR_inv %*% (t(X) %*% diag(w) %*% X) %*% XtwX_RtR_inv
+  expect_equal(drop(res$se.fit), sqrt(diag(cntrst %*% cov_mat %*% t(cntrst))))
 
   # Check that my simplification is valid
   weighted_Design <- X * sqrt(w)
   Xwave <- rbind(weighted_Design, sqrt(nrow(X)) * ridge)
   Rinv <- qr.solve(qr.R(qr(Xwave)))
   B <- cntrst %*% (Rinv %*% t(Rinv)) %*% t(weighted_Design)
-  expect_equal(rowSums(B^2), diag(cntrst %*% sigma_deseq %*% t(cntrst)))
+  expect_equal(rowSums(B^2), diag(cntrst %*% cov_mat %*% t(cntrst)))
 
   # Check that branches agree:
   Rinv <- qr.solve(qr.R(qr(weighted_Design)))
