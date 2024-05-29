@@ -315,14 +315,96 @@ test_that("test_de works without shrinkage", {
 
 
 test_that("test_de works with compute_lfc_se", {
-  Y <- matrix(rnbinom(n = 30 * 10, mu = 4, size = 0.3), nrow = 30, ncol  =10)
+  Y <- matrix(rnbinom(n = 30 * 10, mu = 3000, size = 0.3), nrow = 30, ncol  =10)
   annot <- data.frame(group = sample(c("A", "B"), size = 10, replace = TRUE),
                       cont1 = rnorm(10), cont2 = rnorm(10, mean = 30))
   design <- model.matrix(~ group + cont1 + cont2, data = annot)
-  fit <- glm_gp(Y, design = design)
-  res <- test_de(fit, contrast = c(0, -1, 0, 1),
+  cntrst <- c(0, -1, 0, 1)
+  fit <- glm_gp(Y, design = design, overdispersion_shrinkage = TRUE, size_factors = "ratio")
+  res <- test_de(fit, contrast = cntrst,
                  compute_lfc_se=TRUE)
-  pred <- predict(fit, se.fit=TRUE, newdata=matrix(c(0, -1, 0, 1), nrow=1))
+  pred <- predict(fit, se.fit=TRUE, newdata=matrix(cntrst, nrow=1))
 
-  expect_equal(res$se, pred$se.fit[,1] / log(2))
+  expect_equal(res$lfc_se, pred$se.fit[,1] / log(2))
+
+  res2 <- test_de(fit, reduced_design = model.matrix(~ cont1 + cont2, data = annot),
+                 compute_lfc_se=TRUE)
+
+  expect_equal(res$pval, res2$pval)
+  expect_true(all(is.na(res2$lfc)))
+  expect_true(all(is.na(res2$lfc_se)))
+
+  res3 <- test_de(fit, contrast = cntrst)
+  res4 <- test_de(fit, reduced_design = model.matrix(~ cont1 + cont2, data = annot))
+  expect_equal(res$pval, res3$pval)
+  expect_false("lfc_se" %in% colnames(res3))
+  expect_equal(res$lfc, res3$lfc)
+
+  expect_equal(res$pval, res4$pval)
+  expect_true(all(is.na(res4$lfc)))
+  expect_false("lfc_se" %in% colnames(res3))
 })
+
+
+# test_that("glmGamPoi results are similar to DESeq2",{
+#   Y <- matrix(rnbinom(n = 30 * 10, mu = 3000, size = 0.3), nrow = 30, ncol  =10)
+#   annot <- data.frame(group = sample(c("A", "B"), size = 10, replace = TRUE),
+#                       cont1 = rnorm(10), cont2 = rnorm(10, mean = 30))
+#   design <- model.matrix(~ group, data = annot)
+#   cntrst <- c(0, -1)
+#   fit <- glm_gp(Y, design = design, overdispersion_shrinkage = TRUE, size_factors = "ratio")
+#   res <- test_de(fit, contrast = cntrst,
+#                  compute_lfc_se=TRUE)
+#   pred <- predict(fit, se.fit=TRUE, newdata=matrix(cntrst, nrow=1))
+#
+#   pval <- pnorm(res$lfc / res$lfc_se)
+#   pval <- 2 * pmin(pval, 1-pval)
+#   cor(res$pval, pval)
+#   plot(res$pval, pval, log = "xy"); abline(0,1)
+#
+#   # # Compare against DESeq2
+#   dds <- DESeq2::DESeqDataSetFromMatrix(Y, annot, design = ~ group)
+#   # dds <- DESeq2::DESeq(dds)
+#   dds <- DESeq2::estimateSizeFactors(dds)
+#   expect_equal(cor(fit$size_factors, dds$sizeFactor), 1)
+#
+#   # dds <- DESeq2:::estimateDispersions.DESeqDataSet(dds, fitType = "glmGamPoi")
+#   dds <- DESeq2::estimateDispersionsGeneEst(dds, type = "glmGamPoi", niter = 2)
+#   expect_equal(fit$overdispersions, rowData(dds)$dispGeneEst, tolerance = 1e-4)
+#   dds <- DESeq2::estimateDispersionsFit(dds, fitType = "glmGamPoi")
+#   rowData(dds)$dispFit <- fit$overdispersion_shrinkage_list$dispersion_trend
+#   dds <- DESeq2::estimateDispersionsMAP(dds, type = "glmGamPoi", dispPriorVar = 1e6)
+#   dds <- DESeq2::nbinomWaldTest(dds, minmu = 1e-6)
+#   res_deseq <- DESeq2::results(dds, contrast = cntrst, minmu = 1e-6)
+#   plot(res$lfc_se, res_deseq$lfcSE); abline(0,1)
+#
+#
+#   pval <- 2 * pnorm(abs(res_deseq$log2FoldChange/ res_deseq$lfcSE), lower.tail = FALSE)
+#   plot(pval, res_deseq$pvalue); abline(0,1)
+#   pval2 <- 2 * pnorm(abs(res$lfc/ res$lfc_se), lower.tail = FALSE)
+#   plot(pval2, res_deseq$pvalue, col = as.factor(abs(res_deseq$lfcSE - res$lfc_se) < 1e-4)); abline(0,1)
+#
+#
+#   # Test with custom ridge penalty. DESeq doesn't support arbitrary lambda values, so
+#   # patch by manually changing the values through the debugger.
+#   lambda_global <- c(0.2, 3)
+#   lambda_deseq <- lambda_global^2 * ncol(Y)
+#   debugonce(DESeq2:::getContrast)
+#   res_deseq2 <- DESeq2::results(dds, contrast = cntrst, minmu = 1e-6)
+#   fit2 <- glm_gp(Y, design = design, overdispersion_shrinkage = TRUE, size_factors = "ratio",
+#                  ridge_penalty = lambda_global)
+#   res2 <- test_de(fit2, contrast = cntrst, compute_lfc_se=TRUE)
+#   # Results agree well enough
+#   plot(res2$lfc_se, res_deseq2$lfcSE); abline(0,1)
+#
+#
+#   # # Compare against edgeR
+#   edgeR_data <- edgeR::DGEList(Y)
+#   edgeR_data <- edgeR::calcNormFactors(edgeR_data, method =  "RLE")
+#   edgeR_data <- edgeR::estimateDisp(edgeR_data, design)
+#   edgeR_fit <- edgeR::glmFit(edgeR_data, design = design)
+#   edgeR_fit <- edgeR::glmLRT(edgeR_fit, contrast = cntrst)
+#   res_edgeR <- edgeR::topTags(edgeR_fit, sort.by = "none", n = nrow(Y))
+#   plot(res$lfc, res_edgeR$table$logFC); abline(0,1)
+#   plot(res$pval, res_edgeR$table$PValue); abline(0,1)
+# })
