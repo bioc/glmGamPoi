@@ -63,8 +63,8 @@
 #'   dispersion). If `overdispersion_shrinkage = TRUE`, a median trend of dispersion and expression level is
 #'   fit and used to estimate the variances of a quasi Gamma Poisson model (Lund et al. 2012). Default: `TRUE`.
 #' @param ridge_penalty to avoid overfitting, we can penalize fits with large coefficient estimates. Instead
-#'   of directly minimizing the deviance per gene (\eqn{Sum dev(y_i, X_i b)}), we will minimize
-#'   \eqn{Sum dev(y_i, X_i b) + N * Sum (penalty_p * b_p)^2}.\cr
+#'   of directly minimizing the deviance per gene (\eqn{\sum dev(y_i, X_i b)}), we will minimize
+#'   \eqn{\sum dev(y_i, X_i b) + N * \sum (penalty_p * b_p)^2}.\cr
 #'   `ridge_penalty` can be
 #'   \itemize{
 #'     \item a scalar in which case all parameters except the intercept are penalized.

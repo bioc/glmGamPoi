@@ -74,6 +74,9 @@ occur for lowly expressed genes because the ratio of two small numbers can be im
 the range of log fold changes can clarify the patterns in a volcano plot. Default: \code{10} which
 corresponds to a thousand-fold (2^10) increase in expression.}
 
+\item{compute_lfc_se}{Compute standard errors for the log fold changes, and add a column \code{lfc_se} to the
+returned dataframe. Only has an effect when using \code{contrast} instead of \code{reduced_design}. Default: \code{FALSE}}
+
 \item{verbose}{a boolean that indicates if information about the individual steps are printed
 while fitting the GLM. Default: \code{FALSE}.}
 }
@@ -83,11 +86,12 @@ a \code{data.frame} with the following columns
 \item{name}{the rownames of the input data}
 \item{pval}{the p-values of the quasi-likelihood ratio test}
 \item{adj_pval}{the adjusted p-values returned from \code{\link[=p.adjust]{p.adjust()}}}
-\item{f_statistic}{the F-statistic: \eqn{F = (Dev_full - Dev_red) / (df_1 * disp_ql-shrunken)}}
+\item{f_statistic}{the F-statistic: \eqn{F = (Dev_{full} - Dev_{red}) / (df_1 * disp_{ql-shrunken})}}
 \item{df1}{the degrees of freedom of the test: \code{ncol(design) - ncol(reduced_design)}}
 \item{df2}{the degrees of freedom of the fit: \code{ncol(data) - ncol(design) + df_0}}
 \item{lfc}{the log2-fold change. If the alternative model is specified by \code{reduced_design} will
 be \code{NA}.}
+\item{lfc_se}{the standard error of the log2-fold change. Only calculated if \code{compute_lfc_se == TRUE}.}
 }
 }
 \description{

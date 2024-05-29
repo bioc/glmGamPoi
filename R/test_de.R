@@ -47,7 +47,7 @@
 #'   occur for lowly expressed genes because the ratio of two small numbers can be impractically large. For example, limiting
 #'   the range of log fold changes can clarify the patterns in a volcano plot. Default: `10` which
 #'   corresponds to a thousand-fold (2^10) increase in expression.
-#' @param compute_lfc_se Compute standard errors for the log fold changes, and add a column `se` to the
+#' @param compute_lfc_se Compute standard errors for the log fold changes, and add a column `lfc_se` to the
 #'   returned dataframe. Only has an effect when using `contrast` instead of `reduced_design`. Default: `FALSE`
 #'
 #' @details
@@ -67,7 +67,7 @@
 #'   \item{name}{the rownames of the input data}
 #'   \item{pval}{the p-values of the quasi-likelihood ratio test}
 #'   \item{adj_pval}{the adjusted p-values returned from [p.adjust()]}
-#'   \item{f_statistic}{the F-statistic: \eqn{F = (Dev_full - Dev_red) / (df_1 * disp_ql-shrunken)}}
+#'   \item{f_statistic}{the F-statistic: \eqn{F = (Dev_{full} - Dev_{red}) / (df_1 * disp_{ql-shrunken})}}
 #'   \item{df1}{the degrees of freedom of the test: `ncol(design) - ncol(reduced_design)`}
 #'   \item{df2}{the degrees of freedom of the fit: `ncol(data) - ncol(design) + df_0`}
 #'   \item{lfc}{the log2-fold change. If the alternative model is specified by `reduced_design` will

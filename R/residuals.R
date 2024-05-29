@@ -11,11 +11,11 @@
 #' This method can calculate a range of different residuals:
 #' \describe{
 #'   \item{deviance}{The deviance for the Gamma-Poisson model is
-#'     \deqn{dev = 2 * (1/theta * log((1 + m * theta) / (1 + y * theta)) - y log((m + y * theta) / (y + y * m * theta)))}
+#'     \deqn{dev = 2 * (1/theta * \log((1 + m * theta) / (1 + y * theta)) - y \log((m + y * theta) / (y + y * m * theta)))}
 #'   and the residual accordingly is
-#'     \deqn{res = sign(y - m) sqrt(dev).}
+#'     \deqn{res = sign(y - m) \sqrt{dev}.}
 #'   }
-#'   \item{pearson}{The Pearson residual is \eqn{res = (y - m) / sqrt(m + m^2 * theta)}}
+#'   \item{pearson}{The Pearson residual is \eqn{res = (y - m) / \sqrt{m + m^2 * theta}.}}
 #'   \item{randomized_quantile}{The randomized quantile residual was originally developed
 #'   by Dunn & Smyth, 1995. Please see that publication or [statmod::qresiduals()] for more
 #'   information.}
