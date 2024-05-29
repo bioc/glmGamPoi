@@ -202,14 +202,19 @@ predict.glmGamPoi <- function(object, newdata = NULL,
       weighted_Design <-  object$model_matrix * sqrt(weights)
       tryCatch({
         if(ridge_penalty_is_small){
+          # Below is an optimized formula to calculate the variance covariance matrix (X'X)^-1
+          # See https://stats.stackexchange.com/a/407734/130486
           Rinv <- qr.solve(qr.R(qr(weighted_Design)))
           lhs <- design_matrix %*% Rinv
           sqrt(matrixStats::rowSums2(lhs^2))
         }else{
-          # This is explicit formula:
+          # This is the explicit formula to calculate the variance covariance matrix with ridge.
+          # Formula is from "Wald test" section page 18 of  DESeq2 paper (Love et al., 2014)
           # XtwX <- t(weighted_Design) %*% weighted_Design
           # XtwX_ridge_inv <- solve(XtwX + nrow(weighted_Design) * t(ridge_penalty) %*% ridge_penalty)
-          # sqrt(diag(design_matrix %*% XtwX_ridge_inv %*% XtwX %*% XtwX_ridge_inv %*% t(design_matrix)))
+          # cov_mat <- XtwX_ridge_inv %*% XtwX %*% XtwX_ridge_inv
+          # sqrt(diag(design_matrix %*% cov_mat %*% t(design_matrix)))
+          # This is an optimized implementation that is numerically more robust
           Xwave <- rbind(weighted_Design, sqrt(nrow(weighted_Design)) * ridge_penalty)
           Rinv <- qr.solve(qr.R(qr(Xwave)))
           lhs <- design_matrix %*% (Rinv %*% t(Rinv)) %*% t(weighted_Design)
