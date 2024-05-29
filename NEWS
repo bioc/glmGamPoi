@@ -1,3 +1,9 @@
+Version 1.17 (2024-05-29)
++ `test_de` can now compute the standard error of the log2-fold change
+(PR#63, thanks @jackkamm)
++ `predict` now considers the `ridge_penalty` when calculating the
+standard errors.
+
 Version 1.15 (2023-11-04)
 + Fix typo in `quasi_gamma_poisson_shrinkage` example (thanks to @nlubock)
 + Add `sample_fraction` argument to `loc_median_fit` (once again thanks @nlubock)
