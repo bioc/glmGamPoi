@@ -319,7 +319,7 @@ test_that("test_de works with compute_lfc_se", {
   annot <- data.frame(group = sample(c("A", "B"), size = 10, replace = TRUE),
                       cont1 = rnorm(10), cont2 = rnorm(10, mean = 30))
   design <- model.matrix(~ group + cont1 + cont2, data = annot)
-  cntrst <- c(0, -1, 0, 1)
+  cntrst <- c(0, -1, 0, 0)
   fit <- glm_gp(Y, design = design, overdispersion_shrinkage = TRUE, size_factors = "ratio")
   res <- test_de(fit, contrast = cntrst,
                  compute_lfc_se=TRUE)
