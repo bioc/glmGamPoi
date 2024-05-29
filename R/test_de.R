@@ -72,6 +72,7 @@
 #'   \item{df2}{the degrees of freedom of the fit: `ncol(data) - ncol(design) + df_0`}
 #'   \item{lfc}{the log2-fold change. If the alternative model is specified by `reduced_design` will
 #'    be `NA`.}
+#'   \item{lfc_se}{the standard error of the log2-fold change. Only calculated if `compute_lfc_se == TRUE`.}
 #' }
 #'
 #' @examples
@@ -169,7 +170,6 @@ test_de_q <- function(fit,
                       env = parent.frame()){
 
   ridge_penalty <- fit$ridge_penalty
-  lfc_se <- NULL
 
   if(! is.matrix(full_design) || length(full_design) != length(fit$model_matrix) || ! all(full_design == fit$model_matrix) ){
     full_design <- handle_design_parameter(full_design, fit$data, SummarizedExperiment::colData(fit$data), NULL)$model_matrix
@@ -257,9 +257,6 @@ test_de_q <- function(fit,
                       newdata=matrix(cntrst, nrow=1))
 
       lfc_se <- pred$se.fit[,1] / log(2)
-
-      stopifnot(rownames(pred$se.fit) == rownames(fit$Beta))
-      stopifnot(all.equal(pred$fit / log(2), lfc))
     }
 
     lfc[lfc < -max_lfc] <- -max_lfc
@@ -290,6 +287,9 @@ test_de_q <- function(fit,
       diag(ridge_penalty, nrow = length(ridge_penalty)) %*% rot
     }
     lfc <- NA
+    if (compute_lfc_se) {
+     lfc_se <- NA
+    }
   }
   if(verbose){message("Fit reduced model")}
   data <- fit$data
@@ -332,8 +332,8 @@ test_de_q <- function(fit,
                     f_statistic = f_stat, df1 = df_test, df2 = df_fit,
                     lfc = lfc,
                     stringsAsFactors = FALSE, row.names = NULL)
-  if (isFALSE(is.null(lfc_se))) {
-    res$se <- lfc_se
+  if (compute_lfc_se) {
+    res$lfc_se <- lfc_se
   }
   sort_by_e <- eval_with_q(sort_by, res, env = env)
   res <- if(is.null(sort_by_e)) {
