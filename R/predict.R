@@ -203,7 +203,7 @@ predict.glmGamPoi <- function(object, newdata = NULL,
       tryCatch({
         if(ridge_penalty_is_small){
           Rinv <- qr.solve(qr.R(qr(weighted_Design)))
-          lhs <- cntrst %*% Rinv
+          lhs <- design_matrix %*% Rinv
           sqrt(matrixStats::rowSums2(lhs^2))
         }else{
           # This is explicit formula:
