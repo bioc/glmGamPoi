@@ -87,7 +87,12 @@ pseudobulk <- function(data, group_by, ...,
     if(verbose) message("Aggregating assay '", assay_name, "' using '", aggr_fnc_res$label, "'.")
     data_mat <- SummarizedExperiment::assay(data, assay_name)
     new_data_mat <- do.call(cbind, lapply(group_split, function(idx){
-      aggr_fnc(data_mat[,idx,drop=FALSE])
+      if(aggr_fnc_res$smart_subset){
+        # This optimization needs sparseMatrixStats >= 1.17.1 to be effective
+        aggr_fnc(data_mat, cols = idx)
+      }else{
+        aggr_fnc(data_mat[,idx,drop=FALSE])
+      }
     }))
     rownames(new_data_mat) <- rownames(data)
     new_data_mat
@@ -110,7 +115,11 @@ pseudobulk <- function(data, group_by, ...,
       if(is(tdata_mat, "LinearEmbeddingMatrix")){
         data_mat <- t(SingleCellExperiment::sampleFactors(tdata_mat))
         new_data_mat <- do.call(cbind, lapply(group_split, function(idx){
-          aggr_fnc(data_mat[,idx,drop=FALSE])
+          if(aggr_fnc_res$smart_subset){
+            aggr_fnc(data_mat, cols = idx)
+          }else{
+            aggr_fnc(data_mat[,idx,drop=FALSE])
+          }
         }))
         SingleCellExperiment::LinearEmbeddingMatrix(t(new_data_mat), SingleCellExperiment::featureLoadings(tdata_mat),
                                                     factorData = SingleCellExperiment::factorData(tdata_mat))
@@ -191,8 +200,8 @@ get_aggregation_function <- function(assay_name, aggregation_functions){
   }else{
     label <- "custom function"
   }
-
-  list(fnc = aggr_fnc, label = label)
+  smart_subset <- "cols" %in% names(formals(aggr_fnc))
+  list(fnc = aggr_fnc, label = label, smart_subset = smart_subset)
 }
 
 #' Quote grouping variables

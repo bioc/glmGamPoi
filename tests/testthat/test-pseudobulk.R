@@ -98,3 +98,14 @@ test_that("NA's don't mess up the results", {
   psce <- pseudobulk(sce, group_by = vars(fav_food), make_colnames = FALSE)
   expect_equal(SummarizedExperiment::colData(psce)$fav_food, unique(SummarizedExperiment::colData(sce)$fav_food))
 })
+
+
+# Compare speed of complex aggregation with smart_subsetting
+# mat <-  as(matrix(rpois(n = 1000 * 1e5, lambda = 0.1), nrow = 1000, ncol = 1e5), "dgCMatrix")
+# sce <- SingleCellExperiment::SingleCellExperiment(list(counts = mat))
+# grouping <- sample(1:3000, size = 1e5, replace = TRUE)
+# bench::mark(
+#   smart = pseudobulk(sce, group_by = vars(grouping), aggregation_functions = list("counts" = sparseMatrixStats::rowMeans2)),
+#   not_smart = pseudobulk(sce, group_by = vars(grouping), aggregation_functions = list("counts" = Matrix::rowMeans))
+# )
+
