@@ -3,6 +3,8 @@ Version 1.17 (2024-05-29)
 (PR#63, thanks @jackkamm)
 + `predict` now considers the `ridge_penalty` when calculating the
 standard errors.
++ Detect if smart subset of MatrixGenerics' `rowMeans2` and `rowSums2`
+can be used to speed-up `pseudobulk` calculation.
 
 Version 1.15 (2023-11-04)
 + Fix typo in `quasi_gamma_poisson_shrinkage` example (thanks to @nlubock)
