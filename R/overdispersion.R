@@ -77,6 +77,7 @@
 #'
 #' @seealso [glm_gp()]
 #' @export
+#' @importFrom beachmat initializeCpp
 overdispersion_mle <- function(y, mean,
                            model_matrix = NULL,
                            do_cox_reid_adjustment = ! is.null(model_matrix),
@@ -110,7 +111,7 @@ overdispersion_mle <- function(y, mean,
       estimate_global_overdispersion(y, mean, model_matrix, do_cox_reid_adjustment)
     }else{
       # This function calls overdispersion_mle() for each row, but is faster than a vapply()
-      estimate_overdispersions_fast(y, mean, model_matrix, do_cox_reid_adjustment, n_subsamples, max_iter)
+      estimate_overdispersions_fast(initializeCpp(y), initializeCpp(mean), model_matrix, do_cox_reid_adjustment, n_subsamples, max_iter)
     }
   }else{
     overdispersion_mle_impl(as.numeric(y), mean, model_matrix, do_cox_reid_adjustment,
@@ -254,13 +255,13 @@ conventional_overdispersion_mle <- function(y, mean_vector,
 }
 
 
-
+#' @importFrom beachmat initializeCpp
 estimate_global_overdispersion <- function(Y, Mu, model_matrix, do_cox_reid_adjustment){
   # The idea to calculate the log-likelihood and than maximize the interpolation
   # is from edgeR.
   # The runtime is linear with the number of `log_thetas`
   log_thetas <- seq(-6, 1, length.out = 10)
-  log_likes <- estimate_global_overdispersions_fast(Y, Mu, model_matrix, do_cox_reid_adjustment, log_thetas)
+  log_likes <- estimate_global_overdispersions_fast(initializeCpp(Y), initializeCpp(Mu), model_matrix, do_cox_reid_adjustment, log_thetas)
   spl <- spline(log_thetas, log_likes, n = 1000)
   est <- exp(spl$x[which.max(spl$y)])
   list(estimate = est, iterations = 10, message = "global estimate using spline interpolation")

@@ -1,7 +1,6 @@
 // #include <Rcpp.h>
 #include <RcppArmadillo.h>
-#include "beachmat/numeric_matrix.h"
-#include "beachmat/integer_matrix.h"
+#include "Rtatami.h"
 
 using namespace Rcpp;
 // [[Rcpp::depends(RcppArmadillo)]]
@@ -262,29 +261,40 @@ double conventional_deriv_score_function_fast(NumericVector y, NumericVector mu,
 
 // ------------------------------------------------------------------------------------------------
 
-template<class NumericType>
-List estimate_overdispersions_fast_internal(RObject Y, RObject mean_matrix, NumericMatrix model_matrix, bool do_cox_reid_adjustment,
-                                            double n_subsamples, int max_iter){
-  auto Y_bm = beachmat::create_matrix<NumericType>(Y);
-  auto mean_mat_bm = beachmat::create_numeric_matrix(mean_matrix);
-  int n_samples = Y_bm->get_ncol();
-  int n_genes = Y_bm->get_nrow();
+// [[Rcpp::export]]
+List estimate_overdispersions_fast(RObject Y, RObject mean_matrix, NumericMatrix model_matrix, bool do_cox_reid_adjustment,
+                                   double n_subsamples, int max_iter){
+  Rtatami::BoundNumericPointer Y_bm_ptr(Y);
+  const auto& Y_bm = *(Y_bm_ptr->ptr);
+  Rtatami::BoundNumericPointer mean_mat_bm_ptr(mean_matrix);
+  const auto& mean_mat_bm = *(mean_mat_bm_ptr->ptr);
+
+  int n_samples = Y_bm.ncol();
+  int n_genes = Y_bm.nrow();
+
   NumericVector estimates(n_genes);
   NumericVector iterations(n_genes);
   CharacterVector messages(n_genes);
-  if(n_genes != mean_mat_bm->get_nrow() || n_samples != mean_mat_bm->get_ncol()){
+
+  if(n_genes != mean_mat_bm.nrow() || n_samples != mean_mat_bm.ncol()){
     throw std::runtime_error("Dimensions of Y and mean_matrix do not match");
   }
+
+  auto Y_ext = tatami::consecutive_extractor<false>(&Y_bm, true, 0, n_genes);
+  auto mean_mat_ext = tatami::consecutive_extractor<false>(&mean_mat_bm, true, 0, n_genes);
+  NumericVector counts(n_samples), mu(n_samples);
 
   // This is calling back to R, which simplifies my code a lot
   Environment glmGamPoiEnv = Environment::namespace_env("glmGamPoi");
   Function overdispersion_mle_impl = glmGamPoiEnv["overdispersion_mle_impl"];
   for(int gene_idx = 0; gene_idx < n_genes; gene_idx++){
     if (gene_idx % 100 == 0) checkUserInterrupt();
-    typename NumericType::vector counts(n_samples);
-    Y_bm->get_row(gene_idx, counts.begin());
-    NumericVector mu(n_samples);
-    mean_mat_bm->get_row(gene_idx, mu.begin());
+
+    // Using copy_n to ensure that the vectors are actually filled.
+    auto cptr = Y_ext->fetch(counts.begin());
+    tatami::copy_n(cptr, n_samples, counts.begin());
+    auto mptr = mean_mat_ext->fetch(mu.begin());
+    tatami::copy_n(mptr, n_samples, mu.begin());
 
     // Check if the first value is NA, if yes all of them will be
     if(n_samples > 0 && Rcpp::traits::is_na<REALSXP>(mu[0])){
@@ -306,36 +316,31 @@ List estimate_overdispersions_fast_internal(RObject Y, RObject mean_matrix, Nume
 }
 
 // [[Rcpp::export]]
-List estimate_overdispersions_fast(RObject Y, RObject mean_matrix, NumericMatrix model_matrix, bool do_cox_reid_adjustment,
-                              double n_subsamples, int max_iter){
-  auto mattype=beachmat::find_sexp_type(Y);
-  if (mattype==INTSXP) {
-    return estimate_overdispersions_fast_internal<beachmat::integer_matrix>(Y, mean_matrix, model_matrix, do_cox_reid_adjustment, n_subsamples, max_iter);
-  } else if (mattype==REALSXP) {
-    return estimate_overdispersions_fast_internal<beachmat::numeric_matrix>(Y, mean_matrix, model_matrix, do_cox_reid_adjustment, n_subsamples, max_iter);
-  } else {
-    throw std::runtime_error("unacceptable matrix type");
-  }
-}
+NumericVector estimate_global_overdispersions_fast(RObject Y, RObject mean_matrix, const arma::mat model_matrix, const bool do_cox_reid_adjustment,
+                                                   const NumericVector log_thetas){
+  Rtatami::BoundNumericPointer Y_bm_ptr(Y);
+  const auto& Y_bm = *(Y_bm_ptr->ptr);
+  Rtatami::BoundNumericPointer mean_mat_bm_ptr(mean_matrix);
+  const auto& mean_mat_bm = *(mean_mat_bm_ptr->ptr);
 
-
-template<class NumericType>
-NumericVector estimate_global_overdispersions_fast_internal(RObject Y, RObject mean_matrix, const arma::mat model_matrix, const bool do_cox_reid_adjustment,
-                                                            const NumericVector log_thetas){
-  const auto Y_bm = beachmat::create_matrix<NumericType>(Y);
-  const auto mean_mat_bm = beachmat::create_numeric_matrix(mean_matrix);
-  int n_samples = Y_bm->get_ncol();
-  int n_genes = Y_bm->get_nrow();
+  int n_samples = Y_bm.ncol();
+  int n_genes = Y_bm.nrow();
   int n_spline_points = log_thetas.size();
 
   NumericVector log_likelihoods(n_spline_points);
 
+  auto Y_ext = tatami::consecutive_extractor<false>(&Y_bm, true, 0, n_genes);
+  auto mean_mat_ext = tatami::consecutive_extractor<false>(&mean_mat_bm, true, 0, n_genes);
+  NumericVector counts(n_samples), mu(n_samples);
+
   for(int gene_idx = 0; gene_idx < n_genes; gene_idx++){
     if (gene_idx % 100 == 0) checkUserInterrupt();
-    NumericVector counts(n_samples);
-    Y_bm->get_row(gene_idx, counts.begin());
-    NumericVector mu(n_samples);
-    mean_mat_bm->get_row(gene_idx, mu.begin());
+
+    // Using copy_n to ensure that the vectors are actually filled.
+    auto cptr = Y_ext->fetch(counts.begin());
+    tatami::copy_n(cptr, n_samples, counts.begin());
+    auto mptr = mean_mat_ext->fetch(mu.begin());
+    tatami::copy_n(mptr, n_samples, mu.begin());
 
     ListOf<NumericVector> tab = List::create(NumericVector::create(), NumericVector::create());
 
@@ -347,18 +352,4 @@ NumericVector estimate_global_overdispersions_fast_internal(RObject Y, RObject m
     }
   }
   return log_likelihoods;
-}
-
-
-// [[Rcpp::export]]
-NumericVector estimate_global_overdispersions_fast(RObject Y, RObject mean_matrix, const arma::mat model_matrix, const bool do_cox_reid_adjustment,
-                                                   const NumericVector log_thetas){
-  auto mattype=beachmat::find_sexp_type(Y);
-  if (mattype==INTSXP) {
-    return estimate_global_overdispersions_fast_internal<beachmat::integer_matrix>(Y, mean_matrix, model_matrix, do_cox_reid_adjustment, log_thetas);
-  } else if (mattype==REALSXP) {
-    return estimate_global_overdispersions_fast_internal<beachmat::numeric_matrix>(Y, mean_matrix, model_matrix, do_cox_reid_adjustment, log_thetas);
-  } else {
-    throw std::runtime_error("unacceptable matrix type");
-  }
 }

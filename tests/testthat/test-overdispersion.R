@@ -309,9 +309,9 @@ test_that("DelayedArrays are handled efficiently", {
                               model_matrix = model_matrix, do_cox_reid_adjustment = TRUE)$estimate
   }, FUN.VALUE = 0.0)
 
-  beachmat_ram <- estimate_overdispersions_fast(mat, mean_matrix_ram, model_matrix,
+  beachmat_ram <- estimate_overdispersions_fast(initializeCpp(mat), initializeCpp(mean_matrix_ram), model_matrix,
                                   do_cox_reid_adjustment = TRUE, n_subsamples = n_samples, max_iter = 200)$estimate
-  beachmat_hdf5 <- estimate_overdispersions_fast(mat_hdf5, mean_matrix, model_matrix,
+  beachmat_hdf5 <- estimate_overdispersions_fast(initializeCpp(mat_hdf5), initializeCpp(mean_matrix), model_matrix,
                                   do_cox_reid_adjustment = TRUE, n_subsamples = n_samples, max_iter = 200)$estimate
 
   expect_equal(disp_est_r_ram, disp_est_r_hdf5)
