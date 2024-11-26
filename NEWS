@@ -1,3 +1,8 @@
+Version 1.19 (2024-11-26)
++ glmGamPoi is using the new tatami library instead of the old beachmat interface.
+These libraries helped to work with different kind of matrices (dense, HDF5-backed).
+One important change is that glmGamPoi now requires C++17 (instead of C++14).
+
 Version 1.17 (2024-05-29)
 + `test_de` can now compute the standard error of the log2-fold change
 (PR#63, thanks @jackkamm)
