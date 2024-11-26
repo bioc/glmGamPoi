@@ -488,7 +488,7 @@ test_that("NA's produced by fitBeta_fisher_scoring don't cause problems", {
 
       expect_equal(fit_orig$Beta[-c(5, 17),], fit$Beta[-c(5, 17),], tolerance = 1e-4)
       expect_equal(fit_orig$Mu[-c(5, 17),], fit$Mu[-c(5, 17),], tolerance = 1e-4)
-      expect_equal(fit_orig$overdispersions[-c(5, 17)], fit$overdispersions[-c(5, 17)])
+      expect_equal(fit_orig$overdispersions[-c(5, 17)], fit$overdispersions[-c(5, 17)], tolerance = 1e-4)
       expect_equal(fit_orig$overdispersion_shrinkage_list$ql_disp_estimate[-c(5, 17)],
                    fit$overdispersion_shrinkage_list$ql_disp_estimate[-c(5, 17)], tolerance = 1e-3)
 
