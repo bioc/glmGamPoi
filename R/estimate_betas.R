@@ -39,6 +39,7 @@ estimate_betas_roughly <- function(Y, model_matrix, offset_matrix, pseudo_count 
 #'   * `iterations` the number of iterations
 #'
 #' @keywords internal
+#' @importFrom beachmat initializeCpp
 estimate_betas_fisher_scoring <- function(Y, model_matrix, offset_matrix,
                                           dispersions, beta_mat_init, ridge_penalty,
                                           try_recovering_convergence_problems = TRUE){
@@ -58,7 +59,8 @@ estimate_betas_fisher_scoring <- function(Y, model_matrix, offset_matrix,
     attr(ridge_penalty, "target") <- ridge_target
   }
 
-  betaRes <- fitBeta_fisher_scoring(Y, model_matrix, exp(offset_matrix), dispersions, beta_mat_init,
+  exp_offset_matrix <- exp(offset_matrix)
+  betaRes <- fitBeta_fisher_scoring(initializeCpp(Y), model_matrix, initializeCpp(exp_offset_matrix), dispersions, beta_mat_init,
                                     ridge_penalty_nl = ridge_penalty, tolerance = 1e-8,
                                     max_rel_mu_change = 1e5, max_iter =  max_iter)
   not_converged <- betaRes$iter == max_iter
@@ -179,6 +181,7 @@ estimate_betas_roughly_group_wise <- function(Y, offset_matrix, groups){
 #'   * `deviances` the deviance for each gene (sum of the deviance per group)
 #'
 #' @keywords internal
+#' @importFrom beachmat initializeCpp
 estimate_betas_group_wise <- function(Y, offset_matrix,  dispersions, beta_group_init = NULL, beta_mat_init = NULL, groups, model_matrix){
   stopifnot(nrow(beta_group_init) == nrow(Y))
   stopifnot(ncol(beta_group_init) == length(unique(groups)))
@@ -192,8 +195,11 @@ estimate_betas_group_wise <- function(Y, offset_matrix,  dispersions, beta_group
   }
 
   Beta_res_list <- lapply(unique(groups), function(gr){
-    betaRes <- fitBeta_one_group(Y[, gr == groups, drop = FALSE],
-                                 offset_matrix[, gr == groups, drop = FALSE], thetas = dispersions,
+    chosen <- gr == groups
+    Y_gr <- Y[, chosen, drop = FALSE]
+    offset_gr <- offset_matrix[, chosen, drop = FALSE]
+    betaRes <- fitBeta_one_group(initializeCpp(Y_gr),
+                                 initializeCpp(offset_gr), thetas = dispersions,
                                  beta_start_values = beta_group_init[, gr == unique(groups),drop=TRUE],
                                  tolerance = 1e-8, maxIter = 100)
   })

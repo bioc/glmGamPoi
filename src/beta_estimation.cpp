@@ -1,7 +1,6 @@
 // #include <Rcpp.h>
 #include <RcppArmadillo.h>
-#include "beachmat/numeric_matrix.h"
-#include "beachmat/integer_matrix.h"
+#include "Rtatami.h"
 
 #include <deviance.h>
 #include <fisher_scoring_steps.h>
@@ -188,14 +187,17 @@ double decrease_deviance_plus_ridge(/*In-Out Parameter*/ arma::vec& beta_hat,
 // fit the Negative Binomial GLM with Fisher scoring
 // note: the betas are on the natural log scale
 //
-template<class NumericType, class BMNumericType>
 List fitBeta_fisher_scoring_impl(RObject Y, const arma::mat& model_matrix, RObject exp_offset_matrix,
                                  NumericVector thetas, SEXP beta_matSEXP, Nullable<NumericMatrix> ridge_penalty_nl,
                                  double tolerance, double max_rel_mu_change, int max_iter, bool use_diagonal_approx) {
-  auto Y_bm = beachmat::create_matrix<BMNumericType>(Y);
-  auto exp_offsets_bm = beachmat::create_numeric_matrix(exp_offset_matrix);
-  int n_samples = Y_bm->get_ncol();
-  int n_genes = Y_bm->get_nrow();
+  Rtatami::BoundNumericPointer Y_bm_ptr(Y);
+  const auto& Y_bm = *(Y_bm_ptr->ptr);
+
+  Rtatami::BoundNumericPointer exp_offsets_bm_ptr(exp_offset_matrix);
+  const auto& exp_offsets_bm = *(exp_offsets_bm_ptr->ptr);
+
+  int n_samples = Y_bm.ncol();
+  int n_genes = Y_bm.nrow();
 
   // the ridge penalty
   bool apply_ridge_penalty = ridge_penalty_nl.isNotNull();
@@ -219,16 +221,24 @@ List fitBeta_fisher_scoring_impl(RObject Y, const arma::mat& model_matrix, RObje
   // The result
   arma::mat beta_mat = as<arma::mat>(beta_matSEXP);
 
+  auto Y_ext = tatami::consecutive_extractor<false>(&Y_bm, true, 0, n_genes);
+  auto exp_offsets_ext = tatami::consecutive_extractor<false>(&exp_offsets_bm, true, 0, n_genes);
+  arma::Col<double> counts(n_samples), exp_off(n_samples);
+
   // deviance, convergence and tolerance
   NumericVector iterations(n_genes);
   NumericVector deviance(n_genes);
+
   for (int gene_idx = 0; gene_idx < n_genes; gene_idx++) {
     if (gene_idx % 100 == 0) checkUserInterrupt();
-    // Fill count and offset vector from beachmat matrix
-    arma::Col<NumericType> counts(n_samples);
-    Y_bm->get_row(gene_idx, counts.begin());
-    arma::Col<double> exp_off(n_samples);
-    exp_offsets_bm->get_row(gene_idx, exp_off.begin());
+
+    // Fill count and offset vector from beachmat matrix. This requires copy_n
+    // to ensure that the arma vectors are actually filled.
+    auto cptr = Y_ext->fetch(counts.begin());
+    tatami::copy_n(cptr, n_samples, counts.begin());
+    auto eptr = exp_offsets_ext->fetch(exp_off.begin());
+    tatami::copy_n(eptr, n_samples, exp_off.begin());
+
     // Init beta and mu
     arma::vec beta_hat = beta_mat.row(gene_idx).t();
     arma::vec mu_hat = calculate_mu(model_matrix, beta_hat, exp_off);
@@ -296,22 +306,11 @@ List fitBeta_fisher_scoring_impl(RObject Y, const arma::mat& model_matrix, RObje
 List fitBeta_fisher_scoring(RObject Y, const arma::mat& model_matrix, RObject exp_offset_matrix,
                                   NumericVector thetas, SEXP beta_matSEXP, Nullable<NumericMatrix> ridge_penalty_nl,
                                   double tolerance, double max_rel_mu_change, int max_iter) {
-  auto mattype=beachmat::find_sexp_type(Y);
-  if (mattype==INTSXP) {
-    return fitBeta_fisher_scoring_impl<int, beachmat::integer_matrix>(Y, model_matrix, exp_offset_matrix,
-                                                                      thetas,  beta_matSEXP,
-                                                                      /*ridge_penalty=*/ ridge_penalty_nl,
-                                                                      tolerance, max_rel_mu_change, max_iter,
-                                                                      /*use_diagonal_approx=*/ false);
-  } else if (mattype==REALSXP) {
-    return fitBeta_fisher_scoring_impl<double, beachmat::numeric_matrix>(Y, model_matrix, exp_offset_matrix,
-                                                                         thetas,  beta_matSEXP,
-                                                                         /*ridge_penalty=*/ ridge_penalty_nl,
-                                                                         tolerance, max_rel_mu_change, max_iter,
-                                                                         /*use_diagonal_approx=*/ false);
-  } else {
-    throw std::runtime_error("unacceptable matrix type");
-  }
+  return fitBeta_fisher_scoring_impl(Y, model_matrix, exp_offset_matrix,
+                                     thetas,  beta_matSEXP,
+                                     /*ridge_penalty=*/ ridge_penalty_nl,
+                                     tolerance, max_rel_mu_change, max_iter,
+                                     /*use_diagonal_approx=*/ false);
 }
 
 
@@ -320,37 +319,28 @@ List fitBeta_fisher_scoring(RObject Y, const arma::mat& model_matrix, RObject ex
 List fitBeta_diagonal_fisher_scoring(RObject Y, const arma::mat& model_matrix, RObject exp_offset_matrix,
                                      NumericVector thetas, SEXP beta_matSEXP,
                                      double tolerance, double max_rel_mu_change, int max_iter) {
-  auto mattype=beachmat::find_sexp_type(Y);
-  if (mattype==INTSXP) {
-    return fitBeta_fisher_scoring_impl<int, beachmat::integer_matrix>(Y, model_matrix, exp_offset_matrix,
-                                                                      thetas,  beta_matSEXP,
-                                                                      /*ridge_penalty=*/ R_NilValue,
-                                                                      tolerance, max_rel_mu_change, max_iter,
-                                                                      /*use_diagonal_approx=*/ true);
-  } else if (mattype==REALSXP) {
-    return fitBeta_fisher_scoring_impl<double, beachmat::numeric_matrix>(Y, model_matrix, exp_offset_matrix,
-                                                                         thetas,  beta_matSEXP,
-                                                                         /*ridge_penalty=*/ R_NilValue,
-                                                                         tolerance, max_rel_mu_change, max_iter,
-                                                                         /*use_diagonal_approx=*/ true);
-  } else {
-    throw std::runtime_error("unacceptable matrix type");
-  }
+  return fitBeta_fisher_scoring_impl(Y, model_matrix, exp_offset_matrix,
+                                     thetas,  beta_matSEXP,
+                                     /*ridge_penalty=*/ R_NilValue,
+                                     tolerance, max_rel_mu_change, max_iter,
+                                     /*use_diagonal_approx=*/ true);
 }
 
 
 
 // If there is only one group, there is no need to do the full Fisher-scoring
 // Instead a simple Newton-Raphson algorithm will do
-template<class NumericType>
-List fitBeta_one_group_internal(SEXP Y_SEXP, SEXP offsets_SEXP,
-                       NumericVector thetas, NumericVector beta_start_values,
-                       double tolerance, int maxIter) {
-  auto Y_bm = beachmat::create_matrix<NumericType>(Y_SEXP);
+//
+//[[Rcpp::export(rng = false)]]
+List fitBeta_one_group(RObject Y, RObject offset_matrix, NumericVector thetas, NumericVector beta_start_values, double tolerance, int maxIter) {
+  Rtatami::BoundNumericPointer Y_bm_ptr(Y);
+  const auto& Y_bm = *(Y_bm_ptr->ptr);
 
-  auto offsets_bm = beachmat::create_numeric_matrix(offsets_SEXP);
-  int n_samples = Y_bm->get_ncol();
-  int n_genes = Y_bm->get_nrow();
+  Rtatami::BoundNumericPointer offsets_bm_ptr(offset_matrix);
+  const auto& offsets_bm = *(offsets_bm_ptr->ptr);
+
+  int n_samples = Y_bm.ncol();
+  int n_genes = Y_bm.nrow();
   NumericVector result(n_genes);
   IntegerVector iterations(n_genes);
   NumericVector deviance(n_genes);
@@ -358,8 +348,21 @@ List fitBeta_one_group_internal(SEXP Y_SEXP, SEXP offsets_SEXP,
   Environment glmGamPoiEnv = Environment::namespace_env("glmGamPoi");
   Function estimate_betas_group_wise_optimize_helper = glmGamPoiEnv["estimate_betas_group_wise_optimize_helper"];
 
+  auto Y_ext = tatami::consecutive_extractor<false>(&Y_bm, true, 0, n_genes);
+  auto offset_ext = tatami::consecutive_extractor<false>(&offsets_bm, true, 0, n_genes);
+  Rcpp::NumericVector counts_vec(n_samples), off_vec(n_samples);
+
   for(int gene_idx = 0; gene_idx < n_genes; gene_idx++){
     if (gene_idx % 100 == 0) checkUserInterrupt();
+
+    // This must be run before any continue statement, otherwise we're not respecting 
+    // our promise to extract consecutive genes in the consecutive_extractor() call.
+    //
+    // Also note that this function returns pointers that may not actually fill the
+    // *_vec vectors, e.g., row-major matrices where a pointer to the underlying
+    // array can be directly returned. If *_vec must be filled, use tatami::copy_n.
+    auto counts = Y_ext->fetch(gene_idx, counts_vec.begin());
+    auto off = offset_ext->fetch(gene_idx, off_vec.begin());
 
     double beta = beta_start_values(gene_idx);
     const double& theta = thetas(gene_idx);
@@ -371,10 +374,6 @@ List fitBeta_one_group_internal(SEXP Y_SEXP, SEXP offsets_SEXP,
       continue;
     }
 
-    typename NumericType::vector counts(n_samples);
-    Y_bm->get_row(gene_idx, counts.begin());
-    NumericVector off(n_samples);
-    offsets_bm->get_row(gene_idx, off.begin());
     // Newton-Raphson
     int iter = 0;
     for(; iter < maxIter; iter++){
@@ -403,8 +402,11 @@ List fitBeta_one_group_internal(SEXP Y_SEXP, SEXP offsets_SEXP,
       }
     }
     if(iter == maxIter || Rcpp::traits::is_nan<REALSXP>(beta)){
+      // Make sure we actually populate the vectors before sending them over to R.
+      tatami::copy_n(counts, n_samples, counts_vec.begin());
+      tatami::copy_n(off, n_samples, off_vec.begin());
       // Not converged -> try again with optimize()
-      beta =  Rcpp::as<double>(estimate_betas_group_wise_optimize_helper(counts, off, theta));
+      beta =  Rcpp::as<double>(estimate_betas_group_wise_optimize_helper(counts_vec, off_vec, theta));
     }
     result(gene_idx) = beta;
     iterations(gene_idx) = iter;
@@ -420,26 +422,3 @@ List fitBeta_one_group_internal(SEXP Y_SEXP, SEXP offsets_SEXP,
     Named("deviance", deviance)
   );
 }
-
-// [[Rcpp::export(rng = false)]]
-List fitBeta_one_group(RObject Y, RObject offset_matrix,
-                        NumericVector thetas, NumericVector beta_start_values,
-                        double tolerance, int maxIter) {
-  auto mattype=beachmat::find_sexp_type(Y);
-  if (mattype==INTSXP) {
-    return fitBeta_one_group_internal<beachmat::integer_matrix>(Y, offset_matrix, thetas, beta_start_values, tolerance, maxIter);
-  } else if (mattype==REALSXP) {
-    return fitBeta_one_group_internal<beachmat::numeric_matrix>(Y, offset_matrix, thetas, beta_start_values, tolerance, maxIter);
-  } else {
-    throw std::runtime_error("unacceptable matrix type");
-  }
-}
-
-
-
-
-
-
-
-
-

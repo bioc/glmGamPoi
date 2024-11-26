@@ -432,7 +432,7 @@ test_that("NA's produced by fitBeta_fisher_scoring don't cause problems", {
   testthat::with_mock(
     # Simulated failure to converge
     fitBeta_fisher_scoring =  function(Y, model_matrix, exp_offset_matrix, thetas, beta_matSEXP, ridge_penalty_nl, tolerance, max_rel_mu_change, max_iter) {
-      res <- .Call(`_glmGamPoi_fitBeta_fisher_scoring`, Y, model_matrix, exp_offset_matrix, thetas, beta_matSEXP, ridge_penalty_nl, tolerance, max_rel_mu_change, max_iter)
+      res <- .Call(`_glmGamPoi_fitBeta_fisher_scoring`, initializeCpp(Y), model_matrix, initializeCpp(exp_offset_matrix), thetas, beta_matSEXP, ridge_penalty_nl, tolerance, max_rel_mu_change, max_iter)
       if(! any(res$iter == 0)){
         res$beta_mat[c(5, 17), ] <- NA
         res$iter[c(5, 17)] <- 1000
@@ -462,7 +462,7 @@ test_that("NA's produced by fitBeta_fisher_scoring don't cause problems", {
   testthat::with_mock(
     # Simulated failure to converge
     fitBeta_fisher_scoring =  function(Y, model_matrix, exp_offset_matrix, thetas, beta_matSEXP, ridge_penalty_nl, tolerance, max_rel_mu_change, max_iter) {
-      res <- .Call(`_glmGamPoi_fitBeta_fisher_scoring`, Y, model_matrix, exp_offset_matrix, thetas, beta_matSEXP, ridge_penalty_nl, tolerance, max_rel_mu_change, max_iter)
+      res <- .Call(`_glmGamPoi_fitBeta_fisher_scoring`, initializeCpp(Y), model_matrix, initializeCpp(exp_offset_matrix), thetas, beta_matSEXP, ridge_penalty_nl, tolerance, max_rel_mu_change, max_iter)
       if(! any(res$iter == 0)){
         res$beta_mat[c(5, 17), ] <- NA
         res$iter[c(5, 17)] <- 1000
