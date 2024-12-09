@@ -20,7 +20,6 @@ Suggests:
     DESeq2,
     edgeR,
     limma,
-    beachmat,
     MASS,
     statmod,
     ggplot2,
@@ -32,7 +31,6 @@ Suggests:
     TENxPBMCData,
     muscData,
     scran,
-    Matrix,
     dplyr
 LinkingTo: 
     Rcpp,
@@ -41,12 +39,14 @@ LinkingTo:
     assorthead
 Imports: 
     Rcpp,
+    beachmat,
     DelayedMatrixStats,
     matrixStats,
     MatrixGenerics,
     SparseArray (>= 1.5.21),
     DelayedArray,
     HDF5Array,
+    Matrix,
     SummarizedExperiment,
     SingleCellExperiment,
     BiocGenerics,
